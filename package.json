@@ -1,0 +1,34 @@
+{
+  "name": "turkai",
+  "version": "1.0.0",
+  "description": "Türkçe odaklı, modüler yapay zekâ platformu",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "check": "node -e \"console.log('Node.js ortamı ve paketler kontrol ediliyor...'); const pkg = require('./package.json'); console.log('Proje Adı:', pkg.name); console.log('Kontrol başarılı.')\""
+  },
+  "dependencies": {
+  "express": "^4.19.2",
+  "socket.io": "^4.7.5",
+  "helmet": "^7.1.0",
+  "cors": "^2.8.5",
+  "express-rate-limit": "^7.2.0",
+  "express-validator": "^7.0.1",
+  "dotenv": "^16.4.5",
+  "bcryptjs": "^2.4.3",
+  "jsonwebtoken": "^9.0.2"
+},
+  "keywords": [
+    "turkai",
+    "ai",
+    "platform",
+    "nodejs",
+    "express"
+  ],
+  "author": "TürkAI Geliştirme Ekibi",
+  "license": "ISC"
+}
