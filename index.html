@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TürkAI — Master Yapay Zekâ Platformu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            900: '#07090e',
+                            800: '#0b0f19',
+                            700: '#111522',
+                            600: '#161d31',
+                            500: '#1e293b',
+                            400: '#334155'
+                        },
+                        brand: {
+                            purple: '#8b5cf6',
+                            blue: '#3b82f6',
+                            accent: '#a855f7'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        .glass-panel { background: rgba(17, 21, 34, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .glow-effect { box-shadow: 0 0 25px rgba(139, 92, 246, 0.15); }
+    </style>
+</head>
+<body class="bg-dark-900 text-slate-100 h-screen w-screen overflow-hidden flex flex-col">
+
+    <!-- Kimlik Doğrulama Modal (Giriş/Kayıt) -->
+    <div id="auth-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="glass-panel w-full max-w-md rounded-2xl p-6 glow-effect border border-brand-purple/30">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl font-bold bg-gradient-to-r from-brand-accent to-brand-blue bg-clip-text text-transparent">TürkAI Master</h2>
+                <p class="text-slate-400 text-sm mt-1">Devam etmek için lütfen giriş yapın veya hesap oluşturun.</p>
+            </div>
+            
+            <div class="flex border-b border-dark-400 mb-6">
+                <button id="tab-login-btn" onclick="switchAuthTab('login')" class="flex-1 pb-2 font-medium text-brand-purple border-b-2 border-brand-purple transition">Giriş Yap</button>
+                <button id="tab-register-btn" onclick="switchAuthTab('register')" class="flex-1 pb-2 font-medium text-slate-400 hover:text-slate-200 transition">Kayıt Ol</button>
+            </div>
+
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                <div id="username-field" class="hidden">
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Kullanıcı Adı</label>
+                    <input type="text" id="auth-username" class="w-full bg-dark-700 border border-dark-400 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand-purple text-white" placeholder="Örn: Erencan">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">E-posta Adresi</label>
+                    <input type="email5" id="auth-email" required class="w-full bg-dark-700 border border-dark-400 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand-purple text-white" placeholder="ornek@turkai.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Parola</label>
+                    <input type="password" id="auth-password" required class="w-full bg-dark-700 border border-dark-400 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand-purple text-white" placeholder="••••••••">
+                </div>
+                <div id="auth-error" class="text-red-400 text-xs text-center hidden"></div>
+                <button type="submit" id="auth-submit-btn" class="w-full py-3 bg-gradient-to-r from-brand-purple to-brand-blue rounded-xl font-semibold text-white shadow-lg shadow-brand-purple/20 hover:opacity-90 transition">Giriş Yap</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Ana Uygulama Düzeni -->
+    <div id="app-layout" class="flex h-full w-full relative overflow-hidden">
+        
+        <!-- Sol Kenar Çubuğu (Sidebar) -->
+        <aside id="sidebar" class="w-72 bg-dark-800 border-r border-dark-400 flex flex-col h-full z-30 transition-transform duration-300 absolute md:relative -translate-x-full md:translate-x-0">
+            <div class="p-4 border-b border-dark-400 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center font-bold text-lg shadow-md shadow-brand-purple/30">T</div>
+                    <div>
+                        <h1 class="font-bold text-base tracking-wide bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">TürkAI Master</h1>
+                        <span class="text-[10px] bg-brand-blue/20 text-brand-blue px-2 py-0.5 rounded-full font-medium">Ultra v1.0</span>
+                    </div>
+                </div>
+                <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <div class="p-3">
+                <button onclick="createNewChat()" class="w-full py-2.5 px-4 bg-gradient-to-r from-brand-purple to-brand-blue rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-brand-purple/20 hover:opacity-90 transition">
+                    <span>+</span> Yeni Sohbet Başlat
+                </button>
+            </div>
+
+            <!-- Navigasyon Modülleri -->
+            <div class="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+                <div class="text-[11px] font-semibold text-slate-500 px-3 uppercase tracking-wider mb-2">Çalışma Alanları</div>
+                <a href="#" onclick="switchView('chat')" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-200 bg-dark-600 border border-dark-400 transition" data-view="chat">
+                    💬 Sohbet & Asistan
+                </a>
+                <a href="#" onclick="switchView('memory')" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-dark-500 transition" data-view="memory">
+                    🧠 Cevap Hafızası
+                </a>
+                <a href="#" onclick="switchView('projects')" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-dark-500 transition" data-view="projects">
+                    📁 Proje Stüdyosu
+                </a>
+                <a href="#" onclick="switchView('files')" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-dark-500 transition" data-view="files">
+                    📄 Dosya Yönetimi
+                </a>
+                <a href="#" onclick="switchView('research')" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-dark-500 transition" data-view="research">
+                    🔍 Web Araştırması
+                </a>
+                <a href="#" onclick="switchView('agent')" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-dark-500 transition" data-view="agent">
+                    🤖 Jarvis Ajanı
+                </a>
+                <a href="#" onclick="switchView('plans')" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-dark-500 transition" data-view="plans">
+                    💎 Planlar & Kotalar
+                </a>
+                <a href="#" onclick="switchView('security')" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-dark-500 transition" data-view="security">
+                    🛡️ Güvenlik Merkezi
+                </a>
+
+                <div class="text-[11px] font-semibold text-slate-500 px-3 uppercase tracking-wider mt-6 mb-2">Geçmiş Konuşmalar</div>
+                <div id="conversations-list" class="space-y-1">
+                    <!-- Dinamik yüklenecek -->
+                </div>
+            </div>
+
+            <!-- Alt Kullanıcı Bilgisi -->
+            <div class="p-3 border-t border-dark-400 bg-dark-700/50 flex items-center justify-between">
+                <div class="flex items-center gap-3 truncate">
+                    <div class="w-8 h-8 rounded-full bg-brand-purple/30 text-brand-purple flex items-center justify-center font-bold text-xs" id="user-avatar-initial">T</div>
+                    <div class="truncate">
+                        <div id="sidebar-username" class="text-xs font-semibold truncate text-slate-200">Kullanıcı</div>
+                        <div id="sidebar-userplan" class="text-[10px] text-brand-purple capitalize font-medium">Free Plan</div>
+                    </div>
+                </div>
+                <button onclick="logout()" title="Çıkış Yap" class="text-slate-400 hover:text-red-400 p-2 rounded-lg transition">⎋</button>
+            </div>
+        </aside>
+
+        <!-- Ana İçerik Ekranları -->
+        <main class="flex-1 flex flex-col h-full bg-dark-900 overflow-hidden relative">
+            
+            <!-- Üst Gezinme / Header -->
+            <header class="h-16 bg-dark-800/80 backdrop-blur-md border-b border-dark-400 flex items-center justify-between px-4 z-20">
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleSidebar()" class="md:hidden text-slate-300 hover:text-white p-2">☰</button>
+                    <h2 id="current-view-title" class="font-bold text-base text-slate-200">Sohbet Asistanı</h2>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <!-- Model Seçici -->
+                    <select id="model-selector" class="bg-dark-700 border border-dark-400 text-xs rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-brand-purple font-medium">
+                        <option value="TurkAI-General-Chat-Master">TürkAI General Chat</option>
+                        <option value="TurkAI-Code-Engine-v2">TürkAI Code Advanced</option>
+                        <option value="TurkAI-Logic-Core-v1">TürkAI Logic Core</option>
+                        <option value="TurkAI-Search-Augmented-v3">TürkAI Search Engine</option>
+                        <option value="TurkAI-Jarvis-Agent-Alpha">Jarvis Autonomous Agent</option>
+                    </select>
+                </div>
+            </header>
+
+            <!-- Görünüm Konteynerleri -->
+            <div class="flex-1 overflow-hidden relative flex flex-col">
+                
+                <!-- 1. SOHBET GÖRÜNÜMÜ -->
+                <div id="view-chat" class="view-section flex flex-col h-full absolute inset-0">
+                    <div id="chat-messages-container" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+                        <div class="flex items-start gap-4 max-w-3xl mx-auto w-full">
+                            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center font-bold shrink-0 shadow-md">T</div>
+                            <div class="glass-panel p-4 rounded-2xl text-sm leading-relaxed text-slate-200 border border-dark-400">
+                                Selam knk! TürkAI Master sistemine hoş geldin. Türkçe odaklı, modüler ve güvenli altyapımızla bugün senin için ne geliştirelim veya ne araştıralım?
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mesaj Giriş Alanı -->
+                    <div class="p-4 bg-dark-800 border-t border-dark-400">
+                        <div class="max-w-3xl mx-auto relative">
+                            <textarea id="chat-input" rows="1" onkeydown="handleChatKeyDown(event)" placeholder="TürkAI'ye bir şeyler yaz veya kod iste..." class="w-full bg-dark-700 border border-dark-400 rounded-2xl px-4 py-3.5 pr-14 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-purple resize-none shadow-inner"></textarea>
+                            <button onclick="sendChatMessage()" id="chat-send-btn" class="absolute right-2 bottom-2.5 w-10 h-10 rounded-xl bg-gradient-to-r from-brand-purple to-brand-blue flex items-center justify-center text-white font-bold shadow-md hover:opacity-90 transition">➔</button>
+                        </div>
+                        <div class="text-center text-[11px] text-slate-500 mt-2">TürkAI yanlış bilgi üretebilir. Önemli kararları doğrulayın.</div>
+                    </div>
+                </div>
+
+                <!-- 2. CEVAP HAFIZASI GÖRÜNÜMÜ -->
+                <div id="view-memory" class="view-section flex flex-col h-full absolute inset-0 p-6 overflow-y-auto hidden">
+                    <div class="max-w-4xl mx-auto w-full space-y-6">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h3 class="text-xl font-bold text-white">Cevap Hafızası</h3>
+                                <p class="text-xs text-slate-400">Önemli tercihleriniz, kararlarınız ve bağlam kayıtlarınız.</p>
+                            </div>
+                            <button onclick="openCreateMemoryModal()" class="px-4 py-2 bg-brand-purple text-white text-xs font-semibold rounded-xl hover:opacity-90 transition">+ Yeni Hafıza Ekle</button>
+                        </div>
+                        <div id="memory-list-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Dinamik yüklenecek -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. PROJE STÜDYOSU GÖRÜNÜMÜ -->
+                <div id="view-projects" class="view-section flex flex-col h-full absolute inset-0 p-6 overflow-y-auto hidden">
+                    <div class="max-w-4xl mx-auto w-full space-y-6">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h3 class="text-xl font-bold text-white">Proje Stüdyosu</h3>
+                                <p class="text-xs text-slate-400">Yazılım projeleriniz, web uygulamalarınız ve geliştirme alanlarınız.</p>
+                            </div>
+                            <button onclick="openCreateProjectModal()" class="px-4 py-2 bg-brand-blue text-white text-xs font-semibold rounded-xl hover:opacity-90 transition">+ Yeni Proje Başlat</button>
+                        </div>
+                        <div id="projects-list-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Dinamik yüklenecek -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. DOSYA YÖNETİMİ GÖRÜNÜMÜ -->
+                <div id="view-files" class="view-section flex flex-col h-full absolute inset-0 p-6 overflow-y-auto hidden">
+                    <div class="max-w-4xl mx-auto w-full space-y-6">
+                        <div>
+                            <h3 class="text-xl font-bold text-white">Dosya İstihbaratı & Analiz</h3>
+                            <p class="text-xs text-slate-400">Belgelerinizi yükleyin ve güvenli altyapıda analiz edin.</p>
+                        </div>
+                        <div class="glass-panel p-6 rounded-2xl border border-dashed border-dark-400 text-center">
+                            <input type="file" id="file-upload-input" onchange="handleFileUpload(event)" class="hidden">
+                            <button onclick="document.getElementById('file-upload-input').click()" class="px-6 py-3 bg-dark-700 border border-dark-400 rounded-xl text-sm font-medium text-slate-200 hover:border-brand-purple transition">Bilgisayardan Dosya Seç ve Yükle</button>
+                            <p class="text-xs text-slate-500 mt-2">Desteklenen formatlar: TXT, MD, JSON, Kod dosyaları</p>
+                        </div>
+                        <div id="files-list-container" class="space-y-3">
+                            <!-- Dinamik yüklenecek -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. WEB ARAŞTIRMASI GÖRÜNÜMÜ -->
+                <div id="view-research" class="view-section flex flex-col h-full absolute inset-0 p-6 overflow-y-auto hidden">
+                    <div class="max-w-4xl mx-auto w-full space-y-6">
+                        <div>
+                            <h3 class="text-xl font-bold text-white">Web Araştırma Motoru</h3>
+                            <p class="text-xs text-slate-400">Güncel ve güvenilir kaynaklardan bilgi taraması yapın.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="research-query-input" placeholder="Araştırılacak konuyu yazın..." class="flex-1 bg-dark-700 border border-dark-400 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-purple">
+                            <button onclick="executeResearch()" class="px-6 py-3 bg-brand-purple rounded-xl font-semibold text-sm text-white hover:opacity-90 transition">Araştır</button>
+                        </div>
+                        <div id="research-results-container" class="space-y-4">
+                            <!-- Dinamik yüklenecek -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. JARVIS AJANI GÖRÜNÜMÜ -->
+                <div id="view-agent" class="view-section flex flex-col h-full absolute inset-0 p-6 overflow-y-auto hidden">
+                    <div class="max-w-4xl mx-auto w-full space-y-6">
+                        <div>
+                            <h3 class="text-xl font-bold text-white">Jarvis Gelişmiş Ajan Sistemi (Ultra)</h3>
+                            <p class="text-xs text-slate-400">Çok adımlı karmaşık görevleri yapay zekâ ajanına devredin.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="agent-objective-input" placeholder="Jarvis için görev hedefi girin (Örn: Tam bir e-ticaret sepet sistemi tasarla)..." class="flex-1 bg-dark-700 border border-dark-400 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-purple">
+                            <button onclick="startAgentTask()" class="px-6 py-3 bg-gradient-to-r from-brand-purple to-brand-blue rounded-xl font-semibold text-sm text-white hover:opacity-90 transition">Görevi Başlat</button>
+                        </div>
+                        <div id="agent-tasks-container" class="space-y-4">
+                            <!-- Dinamik yüklenecek -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. PLANLAR GÖRÜNÜMÜ -->
+                <div id="view-plans" class="view-section flex flex-col h-full absolute inset-0 p-6 overflow-y-auto hidden">
+                    <div class="max-w-5xl mx-auto w-full space-y-6">
+                        <div class="text-center">
+                            <h3 class="text-2xl font-bold text-white">TürkAI Abonelik Planları</h3>
+                            <p class="text-xs text-slate-400 mt-1">İhtiyacınıza en uygun planı seçin, sınırsız üretkenliğe ulaşın.</p>
+                        </div>
+                        <div id="plans-container" class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
+                            <!-- Dinamik yüklenecek -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 8. GÜVENLİK MERKEZİ GÖRÜNÜMÜ -->
+                <div id="view-security" class="view-section flex flex-col h-full absolute inset-0 p-6 overflow-y-auto hidden">
+                    <div class="max-w-4xl mx-auto w-full space-y-6">
+                        <div>
+                            <h3 class="text-xl font-bold text-white">Güvenlik Merkezi & Aktif Oturumlar</h3>
+                            <p class="text-xs text-slate-400">Hesabınızın güvenliğini ve aktif cihaz oturumlarınızı yönetin.</p>
+                        </div>
+                        <div id="sessions-list-container" class="space-y-3">
+                            <!-- Dinamik yüklenecek -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Bildirim Toast Alanı -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // --- PARÇA 1: TEMEL DURUM VE YÖNETİM ---
+        let state = {
+            token: localStorage.getItem('turkai_token') || null,
+            user: JSON.parse(localStorage.getItem('turkai_user') || 'null'),
+            currentView: 'chat',
+            currentConversationId: null,
+            conversations: [],
+            socket: null
+        };
+
+        const API_BASE = '/api';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!state.token) {
+                document.getElementById('auth-modal').classList.remove('hidden');
+            } else {
+                initApp();
+            }
+        });
+
+        function switchAuthTab(tab) {
+            const isLogin = tab === 'login';
+            document.getElementById('username-field').classList.toggle('hidden', isLogin);
+            document.getElementById('tab-login-btn').className = isLogin ? 'flex-1 pb-2 font-medium text-brand-purple border-b-2 border-brand-purple transition' : 'flex-1 pb-2 font-medium text-slate-400 hover:text-slate-200 transition';
+            document.getElementById('tab-register-btn').className = !isLogin ? 'flex-1 pb-2 font-medium text-brand-purple border-b-2 border-brand-purple transition' : 'flex-1 pb-2 font-medium text-slate-400 hover:text-slate-200 transition';
+            document.getElementById('auth-submit-btn').textContent = isLogin ? 'Giriş Yap' : 'Kayıt Ol';
+        }
+
+        async function handleAuthSubmit(event) {
+            event.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const username = document.getElementById('auth-username').value;
+            const isRegister = !document.getElementById('username-field').classList.contains('hidden');
+
+            const endpoint = isRegister ? '/auth/register' : '/auth/login';
+            const payload = isRegister ? { username, email, password } : { email, password };
+
+            try {
+                const res = await fetch(API_BASE + endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) throw new Error(data.error || 'İşlem başarısız.');
+
+                state.token = data.token;
+                state.user = data.user;
+                localStorage.setItem('turkai_token', data.token);
+                localStorage.setItem('turkai_user', JSON.stringify(data.user));
+
+                document.getElementById('auth-modal').classList.add('hidden');
+                initApp();
+                showToast('Başarıyla giriş yapıldı!');
+            } catch (err) {
+                const errDiv = document.getElementById('auth-error');
+                errDiv.textContent = err.message;
+                errDiv.classList.remove('hidden');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('turkai_token');
+            localStorage.removeItem('turkai_user');
+            location.reload();
+        }
+
+        function initApp() {
+            if (state.user) {
+                document.getElementById('sidebar-username').textContent = state.user.username;
+                document.getElementById('sidebar-userplan').textContent = `${state.user.plan} Plan`;
+                document.getElementById('user-avatar-initial').textContent = state.user.username.charAt(0).toUpperCase();
+            }
+            initSocket();
+            loadConversations();
+            loadPlans();
+        }
+
+        function initSocket() {
+            state.socket = io({
+                auth: { token: state.token }
+            });
+            state.socket.on('connect', () => console.log('[Socket]: Bağlandı.'));
+            state.socket.on('connect_error', (err) => console.error('[Socket Hata]:', err.message));
+        }
+
+        function switchView(viewName) {
+            state.currentView = viewName;
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-link').forEach(link => {
+                if (link.getAttribute('data-view') === viewName) {
+                    link.className = 'nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-200 bg-dark-600 border border-dark-400 transition';
+                } else {
+                    link.className = 'nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-dark-500 transition';
+                }
+            });
+
+            const titles = {
+                chat: 'Sohbet Asistanı',
+                memory: 'Cevap Hafızası',
+                projects: 'Proje Stüdyosu',
+                files: 'Dosya İstihbaratı',
+                research: 'Web Araştırma Motoru',
+                agent: 'Jarvis Gelişmiş Ajanı',
+                plans: 'Abonelik Planları',
+                security: 'Güvenlik Merkezi'
+            };
+            document.getElementById('current-view-title').textContent = titles[viewName] || 'TürkAI';
+
+            if (viewName === 'memory') loadMemories();
+            if (viewName === 'projects') loadProjects();
+            if (viewName === 'files') loadFiles();
+            if (viewName === 'security') loadSessions();
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `glass-panel px-4 py-3 rounded-xl text-xs font-medium text-white shadow-xl border ${type === 'success' ? 'border-emerald-500/40 bg-emerald-950/40' : 'border-red-500/40 bg-red-950/40'} pointer-events-auto transition animate-bounce`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+
+        // // PARÇA 1 SONU — PARÇA 2 BURADAN DEVAM EDECEK
+        // --- PARÇA 2: GELİŞMİŞ BİLEŞENLER VE API İŞLEMLERİ ---
+
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${state.token}`
+            };
+            const options = { method, headers };
+            if (body) options.body = JSON.stringify(body);
+
+            try {
+                const res = await fetch(API_BASE + endpoint, options);
+                const data = await res.json();
+                if (res.status === 401) {
+                    showToast('Oturum süresi doldu. Lütfen tekrar giriş yapın.', 'error');
+                    logout();
+                    return null;
+                }
+                return data;
+            } catch (err) {
+                console.error('[API Hatası]:', err);
+                showToast('Sunucu bağlantı hatası oluştu.', 'error');
+                return null;
+            }
+        }
+
+        // --- SOHBET SİSTEMİ ---
+        async function loadConversations() {
+            const data = await apiCall('/chat/conversations');
+            if (!data || !data.success) return;
+
+            state.conversations = data.data;
+            const container = document.getElementById('conversations-list');
+            container.innerHTML = '';
+
+            state.conversations.forEach(conv => {
+                const item = document.createElement('div');
+                item.className = `group flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition ${state.currentConversationId === conv.id ? 'bg-dark-600 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-dark-500'}`;
+                item.innerHTML = `
+                    <span class="truncate flex-1" onclick="loadConversationDetail('${conv.id}')">${escapeHtml(conv.title)}</span>
+                    <button onclick="deleteConversation(event, '${conv.id}')" class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 px-1">×</button>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        async function loadConversationDetail(id) {
+            const data = await apiCall(`/chat/conversations/${id}`);
+            if (!data || !data.success) return;
+
+            state.currentConversationId = id;
+            switchView('chat');
+
+            const container = document.getElementById('chat-messages-container');
+            container.innerHTML = '';
+
+            data.data.messages.forEach(msg => {
+                appendChatMessage(msg.role === 'user' ? 'user' : 'assistant', msg.content);
+            });
+            loadConversations();
+        }
+
+        function createNewChat() {
+            state.currentConversationId = null;
+            switchView('chat');
+            document.getElementById('chat-messages-container').innerHTML = `
+                <div class="flex items-start gap-4 max-w-3xl mx-auto w-full">
+                    <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center font-bold shrink-0 shadow-md">T</div>
+                    <div class="glass-panel p-4 rounded-2xl text-sm leading-relaxed text-slate-200 border border-dark-400">
+                        Yeni bir sohbet başlattık knk! Nasıl yardımcı olabilirim?
+                    </div>
+                </div>
+            `;
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            input.value = '';
+            input.style.height = 'auto';
+
+            appendChatMessage('user', message);
+
+            const selectedModel = document.getElementById('model-selector').value;
+
+            // Bekleme Balonu
+            const container = document.getElementById('chat-messages-container');
+            const loadingId = 'loading-' + Date.now();
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = loadingId;
+            loadingDiv.className = 'flex items-start gap-4 max-w-3xl mx-auto w-full';
+            loadingDiv.innerHTML = `
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center font-bold shrink-0 shadow-md animate-pulse">T</div>
+                <div class="glass-panel p-4 rounded-2xl text-sm text-slate-400 border border-dark-400">TürkAI düşünüyor...</div>
+            `;
+            container.appendChild(loadingDiv);
+            container.scrollTop = container.scrollHeight;
+
+            const data = await apiCall('/chat', 'POST', {
+                message,
+                taskType: 'general',
+                conversationId: state.currentConversationId
+            });
+
+            document.getElementById(loadingId)?.remove();
+
+            if (data && data.success) {
+                state.currentConversationId = data.data.conversationId;
+                appendChatMessage('assistant', data.data.reply);
+                loadConversations();
+            } else {
+                appendChatMessage('assistant', 'Üzgünüm, yanıt alınamadı veya kota sınırına ulaşıldı.');
+            }
+        }
+
+        function appendChatMessage(role, text) {
+            const container = document.getElementById('chat-messages-container');
+            const isUser = role === 'user';
+            const div = document.createElement('div');
+            div.className = `flex items-start gap-4 max-w-3xl mx-auto w-full ${isUser ? 'flex-row-reverse' : ''}`;
+            
+            div.innerHTML = `
+                <div class="w-8 h-8 rounded-xl ${isUser ? 'bg-brand-blue/30 text-brand-blue' : 'bg-gradient-to-br from-brand-purple to-brand-blue text-white'} flex items-center justify-center font-bold shrink-0 shadow-md">${isUser ? state.user.username.charAt(0).toUpperCase() : 'T'}</div>
+                <div class="glass-panel p-4 rounded-2xl text-sm leading-relaxed ${isUser ? 'bg-brand-blue/10 border-brand-blue/20 text-white' : 'text-slate-200 border-dark-400'} max-w-[80%]">${escapeHtml(text)}</div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function handleChatKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendChatMessage();
+            }
+        }
+
+        async function deleteConversation(event, id) {
+            event.stopPropagation();
+            const data = await apiCall(`/chat/conversations/${id}`, 'DELETE');
+            if (data && data.success) {
+                if (state.currentConversationId === id) createNewChat();
+                loadConversations();
+                showToast('Konuşma silindi.');
+            }
+        }
+
+        // --- CEVAP HAFIZASI ---
+        async function loadMemories() {
+            const data = await apiCall('/memory');
+            if (!data || !data.success) return;
+
+            const container = document.getElementById('memory-list-container');
+            container.innerHTML = '';
+
+            if (data.data.length === 0) {
+                container.innerHTML = '<div class="col-span-2 text-center text-slate-500 py-8">Henüz hafıza kaydı bulunmuyor.</div>';
+                return;
+            }
+
+            data.data.forEach(mem => {
+                const card = document.createElement('div');
+                card.className = 'glass-panel p-4 rounded-2xl border border-dark-400 flex flex-col justify-between gap-3';
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] bg-brand-purple/20 text-brand-purple px-2 py-0.5 rounded-full uppercase">${escapeHtml(mem.category)}</span>
+                            <span class="text-[10px] text-slate-500">Önem: ${mem.importance}</span>
+                        </div>
+                        <p class="text-xs text-slate-200 leading-relaxed">${escapeHtml(mem.content)}</p>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button onclick="deleteMemory('${mem.id}')" class="text-xs text-red-400 hover:text-red-300">Sil</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function openCreateMemoryModal() {
+            const content = prompt('Hafızaya kaydedilecek bilgiyi girin:');
+            if (!content) return;
+
+            const data = await apiCall('/memory', 'POST', { content, category: 'user-pref', importance: 3 });
+            if (data && data.success) {
+                showToast('Hafıza kaydedildi.');
+                loadMemories();
+            }
+        }
+
+        async function deleteMemory(id) {
+            const data = await apiCall(`/memory/${id}`, 'DELETE');
+            if (data && data.success) {
+                showToast('Hafıza kaydı silindi.');
+                loadMemories();
+            }
+        }
+
+        // --- PROJE STÜDYOSU ---
+        async function loadProjects() {
+            const data = await apiCall('/projects');
+            if (!data || !data.success) return;
+
+            const container = document.getElementById('projects-list-container');
+            container.innerHTML = '';
+
+            if (data.data.length === 0) {
+                container.innerHTML = '<div class="col-span-2 text-center text-slate-500 py-8">Henüz aktif projeniz bulunmuyor.</div>';
+                return;
+            }
+
+            data.data.forEach(proj => {
+                const card = document.createElement('div');
+                card.className = 'glass-panel p-4 rounded-2xl border border-dark-400 flex flex-col justify-between gap-3';
+                card.innerHTML = `
+                    <div>
+                        <h4 class="font-bold text-sm text-white">${escapeHtml(proj.name)}</h4>
+                        <p class="text-xs text-slate-400 mt-1">${escapeHtml(proj.description || 'Açıklama yok.')}</p>
+                    </div>
+                    <div class="flex justify-between items-center text-[10px] text-slate-500">
+                        <span>Tür: ${proj.projectType}</span>
+                        <button onclick="deleteProject('${proj.id}')" class="text-red-400 hover:text-red-300">Projeyi Sil</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function openCreateProjectModal() {
+            const name = prompt('Proje adı girin:');
+            if (!name) return;
+            const description = prompt('Proje açıklaması (isteğe bağlı):') || '';
+
+            const data = await apiCall('/projects', 'POST', { name, description, projectType: 'web-app' });
+            if (data && data.success) {
+                showToast('Proje oluşturuldu.');
+                loadProjects();
+            }
+        }
+
+        async function deleteProject(id) {
+            const data = await apiCall(`/projects/${id}`, 'DELETE');
+            if (data && data.success) {
+                showToast('Proje silindi.');
+                loadProjects();
+            }
+        }
+
+        // --- DOSYA İSTİHBARATI ---
+        async function loadFiles() {
+            const data = await apiCall('/files');
+            if (!data || !data.success) return;
+
+            const container = document.getElementById('files-list-container');
+            container.innerHTML = '';
+
+            if (data.data.length === 0) {
+                container.innerHTML = '<div class="text-center text-slate-500 py-4">Yüklenmiş dosya bulunmuyor.</div>';
+                return;
+            }
+
+            data.data.forEach(file => {
+                const item = document.createElement('div');
+                item.className = 'glass-panel p-3 rounded-xl border border-dark-400 flex justify-between items-center text-xs';
+                item.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span>📄</span>
+                        <div>
+                            <div class="font-semibold text-white">${escapeHtml(file.filename)}</div>
+                            <div class="text-[10px] text-slate-500">Boyut: ${(file.sizeBytes / 1024).toFixed(1)} KB</div>
+                        </div>
+                    </div>
+                    <span class="text-emerald-400 font-medium">Analiz Edildi</span>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const content = e.target.result;
+                const data = await apiCall('/files/upload', 'POST', {
+                    filename: file.name,
+                    content,
+                    mimeType: file.type || 'text/plain'
+                });
+
+                if (data && data.success) {
+                    showToast('Dosya başarıyla yüklendi.');
+                    loadFiles();
+                } else {
+                    showToast(data?.error || 'Dosya yükleme başarısız.', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- WEB ARAŞTIRMASI ---
+        async function executeResearch() {
+            const query = document.getElementById('research-query-input').value.trim();
+            if (!query) return;
+
+            const container = document.getElementById('research-results-container');
+            container.innerHTML = '<div class="text-center text-slate-400 py-4">Web taranıyor ve kaynaklar sentezleniyor...</div>';
+
+            const data = await apiCall('/research', 'POST', { query });
+            if (!data || !data.success) {
+                container.innerHTML = '<div class="text-center text-red-400 py-4">Araştırma gerçekleştirilemedi.</div>';
+                return;
+            }
+
+            const res = data.data;
+            container.innerHTML = `
+                <div class="glass-panel p-5 rounded-2xl border border-dark-400 space-y-4">
+                    <h4 class="font-bold text-sm text-white">Sentez Raporu</h4>
+                    <p class="text-xs text-slate-200 leading-relaxed">${escapeHtml(res.summary)}</p>
+                    <div class="border-t border-dark-400 pt-3">
+                        <div class="text-[11px] font-semibold text-slate-400 mb-2">Kullanılan Kaynaklar:</div>
+                        <div class="space-y-1">
+                            ${res.sources.map(s => `<a href="${s.url}" target="_blank" class="block text-xs text-brand-blue hover:underline">🔗 ${escapeHtml(s.title)} -${escapeHtml(s.snippet)}</a>`).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- JARVIS AJANI ---
+        async function startAgentTask() {
+            const objective = document.getElementById('agent-objective-input').value.trim();
+            if (!objective) return;
+
+            const data = await apiCall('/agent/tasks', 'POST', { objective });
+            if (data && data.success) {
+                showToast('Jarvis ajan görevi başlatıldı.');
+                loadAgentTasks();
+            } else {
+                showToast(data?.error || 'Ajan görevi başlatılamadı. Ultra plan gerekli olabilir.', 'error');
+            }
+        }
+
+        async function loadAgentTasks() {
+            const data = await apiCall('/agent/tasks');
+            if (!data || !data.success) return;
+
+            const container = document.getElementById('agent-tasks-container');
+            container.innerHTML = '';
+
+            data.data.forEach(task => {
+                const card = document.createElement('div');
+                card.className = 'glass-panel p-4 rounded-2xl border border-dark-400 space-y-2';
+                card.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-white">Hedef: ${escapeHtml(task.objective)}</span>
+                        <span class="text-[10px] bg-brand-purple/20 text-brand-purple px-2 py-0.5 rounded-full">${task.status}</span>
+                    </div>
+                    <div class="space-y-1 mt-2">
+                        ${task.steps.map(s => `<div class="text-[11px] text-slate-400">🔹 Adım ${s.step}: ${escapeHtml(s.description)} (${s.status})</div>`).join('')}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // --- PLANLAR ---
+        async function loadPlans() {
+            const data = await apiCall('/plans');
+            if (!data || !data.success) return;
+
+            const container = document.getElementById('plans-container');
+            container.innerHTML = '';
+
+            Object.keys(data.data).forEach(key => {
+                const plan = data.data[key];
+                const isCurrent = state.user && state.user.plan === key;
+                const card = document.createElement('div');
+                card.className = `glass-panel p-6 rounded-2xl border ${isCurrent ? 'border-brand-purple glow-effect' : 'border-dark-400'} flex flex-col justify-between`;
+                card.innerHTML = `
+                    <div>
+                        <h4 class="font-bold text-lg text-white capitalize">${plan.name} Plan</h4>
+                        <p class="text-xs text-slate-400 mt-2">Günlük Token: ${plan.maxTokensPerDay.toLocaleString()}</p>
+                        <p class="text-xs text-slate-400 mt-1">Dosya Boyutu: ${plan.maxFileSizeMb} MB</p>
+                        <p class="text-xs text-slate-400 mt-1">Jarvis Ajanı: ${plan.jarvisAccess ? '✅ Aktif' : '❌ Yok'}</p>
+                    </div>
+                    <button class="mt-6 w-full py-2.5 rounded-xl font-semibold text-xs ${isCurrent ? 'bg-dark-600 text-slate-400 cursor-default' : 'bg-brand-purple text-white hover:opacity-90'} transition">
+                        ${isCurrent ? 'Mevcut Planınız' : 'Planı Seç'}
+                    </button>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // --- GÜVENLİK MERKEZİ ---
+        async function loadSessions() {
+            const data = await apiCall('/security/sessions');
+            if (!data || !data.success) return;
+
+            const container = document.getElementById('sessions-list-container');
+            container.innerHTML = '';
+
+            data.data.forEach(session => {
+                const item = document.createElement('div');
+                item.className = 'glass-panel p-4 rounded-xl border border-dark-400 flex justify-between items-center text-xs';
+                item.innerHTML = `
+                    <div>
+                        <div class="font-semibold text-white">IP: ${escapeHtml(session.ip)}</div>
+                        <div class="text-[10px] text-slate-500">Tarayıcı: ${escapeHtml(session.userAgent || 'Bilinmiyor')}</div>
+                    </div>
+                    <button onclick="revokeSession('${session.sessionId}')" class="text-red-400 hover:text-red-300 font-medium">Oturumu Kapat</button>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        async function revokeSession(sessionId) {
+            const data = await apiCall(`/security/sessions/${sessionId}`, 'DELETE');
+            if (data && data.success) {
+                showToast('Oturum sonlandırıldı.');
+                loadSessions();
+            }
+        }
+
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+    </script>
+</body>
+</html>
